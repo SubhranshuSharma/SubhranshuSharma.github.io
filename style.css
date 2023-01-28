@@ -1,0 +1,27 @@
+body {
+    background-color: black;
+    color: white;
+    font-size: 150%;
+}
+h1 {
+    color: rgb(221, 65, 36);
+}
+h2 {
+    color: cyan;
+}
+a:link {
+    text-decoration: none;
+}
+a {
+  color: rgb(0, 102, 204);
+}
+a:hover {
+    text-decoration: underline;
+}
+a:visited {
+  color: rgb(0, 102, 204);
+}
+b, strong {
+    color: darkorange;
+}
+
