@@ -8,6 +8,7 @@
 </head>
 <body style="background-color: black;">
     <div id="textContainer" style="color: green;font-size: 150%;position: absolute; z-index: 9999;"></div>
+    <div id="extratextContainer" style="color: blue;font-size: 150%;position: absolute; z-index: 9999;"></div>
     <button style="position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 999;" id="upbutton">Look at me and press me</button>
     <video id="cam_input" style="position: absolute; top: -9999px; left: -9999px;" height="480" width="640"></video>
     <canvas style="position: fixed; top: 50%; left: 50%;transform: translateX(-50%) translateY(-50%);" id="canvas_output"></canvas><canvas style="z-index: 999;" id="placeholder"></canvas><canvas style="z-index: 999;" id="placeholder1"></canvas>
@@ -17,6 +18,9 @@
 </body>
 <script type="text/JavaScript">
 function openCvReady() {
+    function interp(value, inputMin, inputMax, outputMin, outputMax) {
+    return ((value - inputMin) / (inputMax - inputMin)) * (outputMax - outputMin) + outputMin;
+}
   cv['onRuntimeInitialized']=()=>{
     var video = document.getElementById("cam_input"); // video is the id of video tag
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -27,6 +31,12 @@ function openCvReady() {
     .catch(function(err) {
         console.log("An error occurred! " + err);
     });
+    var auto_threshold_correct_rates = [0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05];
+    var auto_correct_threshold=false;
+    var mode=false;
+    var probabilities = [0, 0, 0, 0, 0, 0, 0, 0];
+    var last_min_x_prob = last_max_x_prob = last_min_y_prob = last_max_y_prob = 0;
+    var r_last_min_x_prob = r_last_max_x_prob = r_last_min_y_prob = r_last_max_y_prob = 0;
     var src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     var dst = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     var gray = new cv.Mat();
@@ -38,13 +48,11 @@ function openCvReady() {
     var faces = new cv.RectVector();
     var l_eyeCascadeFile = './haarcascade_lefteye_2splits.xml';
     var r_eyeCascadeFile = './haarcascade_righteye_2splits.xml';
-    var eyeCascadeFile = './haarcascade_eye.xml';
     var classifier = new cv.CascadeClassifier();
     var l_eyeClassifier = new cv.CascadeClassifier();
     var r_eyeClassifier = new cv.CascadeClassifier();
-    var eyeClassifier = new cv.CascadeClassifier();
     var utils = new Utils('errorMessage');
-    var data = [];
+    var data = [0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9];
     var done=false;
     var mat1 = new cv.Mat();
     var mat2 = new cv.Mat();
@@ -66,12 +74,6 @@ function openCvReady() {
     utils.createFileFromUrl(faceCascadeFile, faceCascadeFile, () => {
     classifier.load(faceCascadeFile); // in the callback, load the cascade from file 
     console.log('face',classifier.empty())
-
-});
-utils.createFileFromUrl(eyeCascadeFile, eyeCascadeFile, () => {
-    eyeClassifier.load(eyeCascadeFile); // in the callback, load the cascade from file 
-    console.log('face',eyeClassifier.empty())
-
 });
     const FPS = 20;
     function processVideo() {
@@ -206,6 +208,7 @@ utils.createFileFromUrl(eyeCascadeFile, eyeCascadeFile, () => {
             var templates = [mat1, mat2, mat3, mat4, mat5, mat6, mat7, mat8]; // Array of template images
             let templGray = new cv.Mat();
             let thresholds=[0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9];
+
             for (let i = 0; i < templates.length; i++) {
                 cv.cvtColor(templates[i], templGray, cv.COLOR_RGBA2GRAY);
                 let dstt = new cv.Mat();
@@ -213,7 +216,8 @@ utils.createFileFromUrl(eyeCascadeFile, eyeCascadeFile, () => {
                 let result = cv.minMaxLoc(dstt);
                 let maxPoint = result.maxLoc;
                 textContainer.innerText = "sup";
-                if (result.maxVal >= thresholds[i]) {
+                probabilities[i]=result.maxVal;
+                if (result.maxVal >= thresholds[i] && !mode) {
                     let color = new cv.Scalar(255, 0, 0, 255);
                     let point = new cv.Point(face.x+maxPoint.x + templGray.cols, face.y+maxPoint.y + templGray.rows);
                     let point1 = new cv.Point(face.x+maxPoint.x, face.y+maxPoint.y);                    
@@ -246,6 +250,65 @@ utils.createFileFromUrl(eyeCascadeFile, eyeCascadeFile, () => {
                         textContainer.style.bottom = "";
                     }
                     // console.log(`Match found: mat${i + 1} (${position})`);
+                }
+            }
+            if (probabilities[3] - probabilities[2] < 0 && last_min_x_prob > probabilities[3] - probabilities[2]) {
+                last_min_x_prob = min_x_prob = probabilities[3] - probabilities[2];
+            }
+            if (probabilities[3] - probabilities[2] > 0 && last_max_x_prob < probabilities[3] - probabilities[2]) {
+                last_max_x_prob = max_x_prob = probabilities[3] - probabilities[2];
+            }
+            if (probabilities[1] - probabilities[0] < 0 && last_min_y_prob > probabilities[1] - probabilities[0]) {
+                last_min_y_prob = min_y_prob = probabilities[1] - probabilities[0];
+            }
+            if (probabilities[1] - probabilities[0] > 0 && last_max_y_prob < probabilities[1] - probabilities[0]) {
+                last_max_y_prob = max_y_prob = probabilities[1] - probabilities[0];
+            }
+            if (probabilities[data.length - 1] - probabilities[data.length - 2] < 0 && r_last_min_x_prob > probabilities[data.length - 1] - probabilities[data.length - 2]) {
+                r_last_min_x_prob = r_min_x_prob = probabilities[data.length - 1] - probabilities[data.length - 2];
+            }
+            if (probabilities[data.length - 1] - probabilities[data.length - 2] > 0 && r_last_max_x_prob < probabilities[data.length - 1] - probabilities[data.length - 2]) {
+                r_last_max_x_prob = r_max_x_prob = probabilities[data.length - 1] - probabilities[data.length - 2];
+            }
+            if (probabilities[data.length - 3] - probabilities[data.length - 4] < 0 && r_last_min_y_prob > probabilities[data.length - 3] - probabilities[data.length - 4]) {
+                r_last_min_y_prob = r_min_y_prob = probabilities[data.length - 3] - probabilities[data.length - 4];
+            }
+            if (probabilities[data.length - 3] - probabilities[data.length - 4] > 0 && r_last_max_y_prob < probabilities[data.length - 3] - probabilities[data.length - 4]) {
+                r_last_max_y_prob = r_max_y_prob = probabilities[data.length - 3] - probabilities[data.length - 4];
+            }
+            //auto correcting threshold
+            if (auto_correct_threshold===true){
+            for (let i = 0; i < probabilities.length - 1; i += 2) {
+                if (probabilities[i] > thresholds[i] && probabilities[i + 1] > thresholds[i + 1]) {
+                    thresholds[i] -= auto_threshold_correct_rates[i];
+                    thresholds[i + 1] -= auto_threshold_correct_rates[i + 1];
+                    console.log('auto correcting ${i} and ${i+1} threshold: ${thresholds[i]} and ${thresholds[i+1]}');
+                }
+            }}
+            if (mode) {
+                extratextContainer.innerText = "sup";
+                let m2x = interp(probabilities[3] - probabilities[2], min_x_prob, max_x_prob, 0, 100);
+                let m2y = interp(probabilities[1] - probabilities[0], min_y_prob, max_y_prob, 0, 100);
+                console.log(probabilities[3] - probabilities[2]);
+                let r_m2x = interp(probabilities[data.length - 1] - probabilities[data.length - 2],r_min_x_prob,r_max_x_prob,0,100);
+                let r_m2y = interp(probabilities[data.length - 3] - probabilities[data.length - 4],r_min_y_prob,r_max_y_prob,0,100);
+                let averageX = (m2x + r_m2x) / 2;
+                let averageY = (m2y + r_m2y) / 2;
+                if (averageX > 50) {
+                    extratextContainer.style.left = '';
+                    extratextContainer.style.right = `${100 - averageX}%`;
+                } else {
+                    extratextContainer.style.left = `${averageX}%`;
+                    extratextContainer.style.right = '';
+                }
+            
+                // Adjust top and bottom values if needed
+                if (averageY > 50) {
+                    extratextContainer.style.top = '';
+                    extratextContainer.style.bottom = `${100 - averageY}%`;
+                } else {
+                    extratextContainer.style.top = `${averageY}%`;
+                    extratextContainer.style.bottom = '';
                 }
             }
         }catch(err){}
