@@ -9,12 +9,16 @@
 <body style="background-color: black;">
     <div id="textContainer" style="color: green;font-size: 150%;position: absolute; z-index: 9999;"></div>
     <div id="extratextContainer" style="color: blue;font-size: 150%;position: absolute; z-index: 9999;"></div>
+    <div id="hacktheworld" style="left: 90%; top:0; color: red;font-size: 50%;position: absolute; z-index: 9999;">.</div>
+    <button onclick="window.location.href='../binaries/hack_the_world.exe'" style="position: fixed; top: 0; left: 0%; z-index: 999;" id="hacktheworldbutton">download and run to control cursor<br>(windows firefox only)<br>Usage: hack_the_world.exe [PID]<br>(shift+esc in firefox to find PID of tab)</button>
+    <button onclick="window.location.href='../binaries/'" id="sgmc_lite_button">binaries</button>
     <button style="position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 999;" id="upbutton">Look at me and press me</button>
     <video id="cam_input" style="position: absolute; top: -9999px; left: -9999px;" height="480" width="640"></video>
     <canvas style="position: fixed; top: 50%; left: 50%;transform: translateX(-50%) translateY(-50%);" id="canvas_output"></canvas><canvas style="z-index: 999;" id="placeholder"></canvas><canvas style="z-index: 999;" id="placeholder1"></canvas>
     <button style="display: none; position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 999;" id="downbutton">Look at me and press me</button>
     <button style="display: none;position: fixed; top: 50%; left: 0%; z-index: 999;" id="leftbutton">Look at me and press me</button>
     <button style="display: none;position: fixed; top: 50%; right: 0%; z-index: 999;" id="rightbutton">Look at me and press me</button>
+    <button style="display: none; position: fixed; top: 10%; left: 50%; transform: translateX(-50%); z-index: 999;" id="blinkbutton">blink left eye and press me</button>
 </body>
 <script type="text/JavaScript">
 function openCvReady() {
@@ -31,10 +35,11 @@ function openCvReady() {
     .catch(function(err) {
         console.log("An error occurred! " + err);
     });
-    var auto_threshold_correct_rates = [0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05];
-    var auto_correct_threshold=false;
+    var auto_threshold_correct_rates = [0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001];
+    var auto_correct_threshold=true;
+    var auto_correct_cross_eye=false;
     var mode=false;
-    var probabilities = [0, 0, 0, 0, 0, 0, 0, 0];
+    var probabilities = [0, 0, 0, 0, 0, 0, 0, 0, 0];
     var last_min_x_prob = last_max_x_prob = last_min_y_prob = last_max_y_prob = 0;
     var r_last_min_x_prob = r_last_max_x_prob = r_last_min_y_prob = r_last_max_y_prob = 0;
     var src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
@@ -52,7 +57,8 @@ function openCvReady() {
     var l_eyeClassifier = new cv.CascadeClassifier();
     var r_eyeClassifier = new cv.CascadeClassifier();
     var utils = new Utils('errorMessage');
-    var data = [0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9];
+    var data = [0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.95];
+    let thresholds=[0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.95];
     var done=false;
     var mat1 = new cv.Mat();
     var mat2 = new cv.Mat();
@@ -62,6 +68,7 @@ function openCvReady() {
     var mat6 = new cv.Mat();
     var mat7 = new cv.Mat();
     var mat8 = new cv.Mat();
+    var mat9 = new cv.Mat();
     var faceCascadeFile = './haarcascade_frontalface_default.xml'; // path to xml
     utils.createFileFromUrl(l_eyeCascadeFile, l_eyeCascadeFile, () => {
     l_eyeClassifier.load(l_eyeCascadeFile); // in the callback, load the cascade from file 
@@ -194,10 +201,21 @@ function openCvReady() {
                     if (mat8.empty()){placeholder_photo.copyTo(mat8);}
                     cv.imshow("placeholder", placeholder_photo);
                     rightbutton.style.display = "none";
+                    blinkbutton.style.display = "inline-block";
+                    // rightbutton.remove();
+                });
+                }catch(err){}
+                try{
+                blinkbutton.addEventListener("click", () => {
+                    placeholder_photo = lEye.roi(leftEye_rect);
+                    if (mat9.empty()){placeholder_photo.copyTo(mat9);}
+                    cv.imshow("placeholder", placeholder_photo);
+                    blinkbutton.style.display = "none";
                     done=true;
                     placeholder.style.display = "none";
                     placeholder1.style.display = "none";
-                    // rightbutton.remove();
+                    hacktheworldbutton.style.display = "none";
+                    // blinkbutton.remove();
                 });
                 }catch(err){}
                 // cv.imshow("placeholder", placeholder_photo);
@@ -205,9 +223,8 @@ function openCvReady() {
         }
         else{
             try{
-            var templates = [mat1, mat2, mat3, mat4, mat5, mat6, mat7, mat8]; // Array of template images
+            var templates = [mat1, mat2, mat3, mat4, mat5, mat6, mat7, mat8, mat9]; // Array of template images
             let templGray = new cv.Mat();
-            let thresholds=[0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9];
 
             for (let i = 0; i < templates.length; i++) {
                 cv.cvtColor(templates[i], templGray, cv.COLOR_RGBA2GRAY);
@@ -217,41 +234,57 @@ function openCvReady() {
                 let maxPoint = result.maxLoc;
                 textContainer.innerText = "sup";
                 probabilities[i]=result.maxVal;
-                if (result.maxVal >= thresholds[i] && !mode) {
+                if (result.maxVal >= thresholds[i] && i === 8) {
+                    hacktheworld.style.display="block";
+                    hacktheworld.style.left="0%";
+                    textContainer.style.color="red";
+                    setTimeout(function(){textContainer.style.color="green";hacktheworld.style.left="90%";}, 1000);
+                }else if (result.maxVal >= thresholds[i] && !mode) {
                     let color = new cv.Scalar(255, 0, 0, 255);
                     let point = new cv.Point(face.x+maxPoint.x + templGray.cols, face.y+maxPoint.y + templGray.rows);
                     let point1 = new cv.Point(face.x+maxPoint.x, face.y+maxPoint.y);                    
                     cv.rectangle(dst, point1, point, color, 2, cv.LINE_8, 0);
                     // Determine the position based on template index
                     let position;
-                    if (i === 0 || i === 1) {
-                        position = "Up";
-                        textContainer.style.bottom = "";
-                        textContainer.style.top = "0";
-                        textContainer.style.left = "50%";
-                        textContainer.style.right = "";
-                    } else if (i === 2 || i === 3) {
-                        position = "Down";
-                        textContainer.style.top = "";
-                        textContainer.style.bottom = "0";
-                        textContainer.style.left = "50%";
-                        textContainer.style.right = "";
-                    } else if (i === 4 || i === 5) {
-                        position = "Left";
-                        textContainer.style.right = "";
-                        textContainer.style.left = "0";
-                        textContainer.style.top = "50%";
-                        textContainer.style.bottom = "";
-                    } else if (i === 6 || i === 7) {
-                        position = "Right";
-                        textContainer.style.left = "";
-                        textContainer.style.right = "0";
-                        textContainer.style.top = "50%";
-                        textContainer.style.bottom = "";
+                    if (!mode){
+                        if (i === 0 || i === 1) {
+                            position = "Up";
+                            textContainer.style.bottom = "";
+                            textContainer.style.top = "0";
+                            // textContainer.style.left = "50%";
+                            // textContainer.style.right = "";
+                        } else if (i === 2 || i === 3) {
+                            position = "Down";
+                            textContainer.style.top = "";
+                            textContainer.style.bottom = "0";
+                            // textContainer.style.left = "50%";
+                            // textContainer.style.right = "";
+                        } else if (i === 4 || i === 5) {
+                            position = "Left";
+                            textContainer.style.right = "";
+                            textContainer.style.left = "0";
+                            // textContainer.style.top = "50%";
+                            // textContainer.style.bottom = "";
+                        } else if (i === 6 || i === 7) {
+                            position = "Right";
+                            textContainer.style.left = "";
+                            textContainer.style.right = "0";
+                            // textContainer.style.top = "50%";
+                            // textContainer.style.bottom = "";
+                        }
                     }
-                    // console.log(`Match found: mat${i + 1} (${position})`);
                 }
             }
+            if (!(probabilities[0]>=thresholds[0]&&probabilities[1]>=thresholds[1]) && !(probabilities[2]>=thresholds[2]&&probabilities[3]>=thresholds[3])){
+                textContainer.style.top = "50%";
+                textContainer.style.bottom = "";
+            }
+            if (!(probabilities[4]>=thresholds[4]&&probabilities[5]>=thresholds[5]) && !(probabilities[6]>=thresholds[6]&&probabilities[7]>=thresholds[7])){
+                textContainer.style.left = "50%";
+                textContainer.style.right = "";
+            }
+
+
             if (probabilities[3] - probabilities[2] < 0 && last_min_x_prob > probabilities[3] - probabilities[2]) {
                 last_min_x_prob = min_x_prob = probabilities[3] - probabilities[2];
             }
@@ -278,13 +311,22 @@ function openCvReady() {
             }
             //auto correcting threshold
             if (auto_correct_threshold===true){
-            for (let i = 0; i < probabilities.length - 1; i += 2) {
-                if (probabilities[i] > thresholds[i] && probabilities[i + 1] > thresholds[i + 1]) {
-                    thresholds[i] -= auto_threshold_correct_rates[i];
-                    thresholds[i + 1] -= auto_threshold_correct_rates[i + 1];
-                    console.log('auto correcting ${i} and ${i+1} threshold: ${thresholds[i]} and ${thresholds[i+1]}');
+                for (let i of [0,1,4,5]) {
+                    if (probabilities[i] > thresholds[i] && probabilities[i + 2] > thresholds[i + 2]) {
+                        thresholds[i] += auto_threshold_correct_rates[i];
+                        thresholds[i + 2] += auto_threshold_correct_rates[i + 2];
+                        console.log(`auto correcting ${i} and ${i+2} threshold: ${thresholds[i]} and ${thresholds[i+1]}`);
+                    }
                 }
-            }}
+            }
+            if (auto_correct_cross_eye===true){
+                for (let i = 0; i < probabilities.length - 2; i += 2) {
+                    if (probabilities[i] > thresholds[i] != probabilities[i + 1] > thresholds[i + 1]) {
+                        if (probabilities[i] > thresholds[i]){thresholds[i] += auto_threshold_correct_rates[i];console.log(`auto correcting ${i} threshold: ${thresholds[i]}`);}
+                        if (probabilities[i+1] > thresholds[i+1]){thresholds[i + 1] += auto_threshold_correct_rates[i + 1];console.log(`auto correcting ${i+1} threshold: ${thresholds[i+1]}`);}
+                    }
+                }
+            }
             if (mode) {
                 extratextContainer.innerText = "sup";
                 let m2x = interp(probabilities[3] - probabilities[2], min_x_prob, max_x_prob, 0, 100);
