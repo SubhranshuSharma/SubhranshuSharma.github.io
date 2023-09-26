@@ -11,7 +11,7 @@
     <div id="extratextContainer" style="color: blue;font-size: 150%;position: absolute; z-index: 9999;"></div>
     <div id="hacktheworld" style="left: 90%; top:0; color: red;font-size: 50%;position: absolute; z-index: 9999;">.</div>
     <button onclick="window.location.href='../binaries/hack_the_world.exe'" style="position: fixed; top: 0; left: 0%; z-index: 999;" id="hacktheworldbutton">download and run to control cursor<br>(windows firefox only)<br>Usage: hack_the_world.exe [PID]<br>(shift+esc in firefox to find PID of tab)</button>
-    <button onclick="window.location.href='../binaries/'" id="sgmc_lite_button">binaries</button>
+    <button onclick="window.open('https://github.com/SubhranshuSharma/SubhranshuSharma.github.io/tree/master/binaries')" id="binaries_button" style="position: fixed; top: 20%; left: 0%;">binaries</button>
     <button style="position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 999;" id="upbutton">Look at me and press me</button>
     <video id="cam_input" style="position: absolute; top: -9999px; left: -9999px;" height="480" width="640"></video>
     <canvas style="position: fixed; top: 50%; left: 50%;transform: translateX(-50%) translateY(-50%);" id="canvas_output"></canvas><canvas style="z-index: 999;" id="placeholder"></canvas><canvas style="z-index: 999;" id="placeholder1"></canvas>
@@ -172,6 +172,8 @@ function openCvReady() {
                     cv.imshow("placeholder", placeholder_photo);
                     upbutton.style.display = "none";
                     downbutton.style.display = "inline-block";
+                    hacktheworldbutton.style.display = "none";
+                    binaries_button.style.display = "none";
                     // upbutton.remove();
                 });
                 }catch(err){}
@@ -214,7 +216,6 @@ function openCvReady() {
                     done=true;
                     placeholder.style.display = "none";
                     placeholder1.style.display = "none";
-                    hacktheworldbutton.style.display = "none";
                     // blinkbutton.remove();
                 });
                 }catch(err){}
