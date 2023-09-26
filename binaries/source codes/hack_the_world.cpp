@@ -48,14 +48,14 @@ int main(int argc, char* argv[]){
     HANDLE hProcess = 0;
     hProcess = OpenProcess(PROCESS_VM_READ, FALSE, procId);
     uintptr_t dynamicPtrBaseAddr = moduleBase + 0x69C0278;
-    // uintptr_t dynamicPtrBaseAddrclick = moduleBase + 0x69C0278;
+    uintptr_t dynamicPtrBaseAddrclick = moduleBase + 0x69C0310;
 
     std::vector<unsigned int> yOffsets = {0xA8, 0xB0, 0x138, 0x50, 0x88, 0x78, 0xC};
     std::vector<unsigned int> xOffsets = {0x38, 0x50, 0x90, 0x88, 0x78, 0x8};
-    std::vector<unsigned int> cOffsets = {0xA8, 0xA0, 0xD0, 0x50, 0xC0, 0x50, 0x8};
+    std::vector<unsigned int> cOffsets = {0x8, 0x68, 0x38, 0xC0, 0x140, 0x50, 0x8};
     uintptr_t yAddr = FindDMAAddy(hProcess, dynamicPtrBaseAddr, yOffsets);
     uintptr_t xAddr = FindDMAAddy(hProcess, dynamicPtrBaseAddr, xOffsets);
-    uintptr_t cAddr = FindDMAAddy(hProcess, dynamicPtrBaseAddr, cOffsets);
+    uintptr_t cAddr = FindDMAAddy(hProcess, dynamicPtrBaseAddrclick, cOffsets);
 
     DWORD lastDoubleClickTime = 0;
     INPUT input;
