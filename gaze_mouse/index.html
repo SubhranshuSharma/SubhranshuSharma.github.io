@@ -9,9 +9,8 @@
 <body style="background-color: black;">
     <div id="textContainer" style="color: green;font-size: 150%;position: absolute; z-index: 9999;"></div>
     <div id="extratextContainer" style="color: blue;font-size: 150%;position: absolute; z-index: 9999;"></div>
-    <div id="hacktheworld" style="left: 90%; top:0; color: red;font-size: 50%;position: absolute; z-index: 9999;">.</div>
-    <button onclick="window.open('../binaries/hack_the_world.exe')" style="position: fixed; top: 0; left: 0%; z-index: 999;" id="hacktheworldbutton">download and run to control cursor<br>(windows firefox 119.0.1 only)<br>Usage: hack_the_world.exe [PID]<br>(shift+esc in firefox to find PID of tab)</button>
-    <button onclick="window.open('https://github.com/SubhranshuSharma/SubhranshuSharma.github.io/tree/master/binaries')" id="binaries_button" style="position: fixed; top: 20%; left: 0%;">binaries</button>
+    <button onclick="window.open('https://github.com/SubhranshuSharma/SubhranshuSharma.github.io/releases/latest/download/hack_the_world.exe')" style="position: fixed; top: 0; left: 0%; z-index: 999;" id="hacktheworldbutton">download and run to control cursor<br>(works on 2nd last windows firefox version atleast)</button>
+    <button onclick="window.open('https://github.com/SubhranshuSharma/SubhranshuSharma.github.io/releases/')" id="binaries_button" style="position: fixed; top: 20%; left: 0%;">binaries</button>
     <button style="position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 999;" id="upbutton">Look at me and press me</button>
     <video id="cam_input" style="position: absolute; top: -9999px; left: -9999px;" height="480" width="640"></video>
     <canvas style="position: fixed; top: 50%; left: 50%;transform: translateX(-50%) translateY(-50%);" id="canvas_output"></canvas><canvas style="z-index: 999;" id="placeholder"></canvas><canvas style="z-index: 999;" id="placeholder1"></canvas>
@@ -236,10 +235,8 @@ function openCvReady() {
                 textContainer.innerText = "sup";
                 probabilities[i]=result.maxVal;
                 if (result.maxVal >= thresholds[i] && i === 8) {
-                    hacktheworld.style.display="block";
-                    hacktheworld.style.left="0%";
                     textContainer.style.color="red";
-                    setTimeout(function(){textContainer.style.color="green";hacktheworld.style.left="90%";}, 1000);
+                    setTimeout(function(){textContainer.style.color="green";}, 1000);
                 }else if (result.maxVal >= thresholds[i] && !mode) {
                     let color = new cv.Scalar(255, 0, 0, 255);
                     let point = new cv.Point(face.x+maxPoint.x + templGray.cols, face.y+maxPoint.y + templGray.rows);

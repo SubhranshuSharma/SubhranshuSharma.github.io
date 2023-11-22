@@ -1,123 +1,190 @@
-#include <iostream>
+#include <windows.h>
+#include <stdio.h>
+#include <tlhelp32.h>
+#include <string>
+#include <map>
 #include <vector>
-#include <Windows.h>
-#include <TlHelp32.h>
 #include <thread>
-#include <cmath>
 
-uintptr_t GetModuleBaseAddress(DWORD processId, const wchar_t* moduleName) {
-    uintptr_t baseAddress = 0;
-    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, processId);
 
-    if (snapshot != INVALID_HANDLE_VALUE) {
-        MODULEENTRY32W moduleEntry; // Note the use of MODULEENTRY32W for wide character support
-        moduleEntry.dwSize = sizeof(MODULEENTRY32W);
+unsigned char bytes[] = { 0x7F, 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', '?', '?', '?', '?', 0x00, 0x00, '?', '?', '?', '?', '?', '?', 0x00, 0x00, 0x00, '?', '?', '?', '?', '?', 0x00, 0x00, 0xC0, '?', '?', '?', '?', '?', 0x00, 0x00 ,'?', '?', '?', '?', '?', '?', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, '?', '?' ,'?' ,'?' ,'?', '?' ,0x00, 0x00 ,'?' ,'?' ,0xD0 ,0x00 ,0x20 ,0x00 ,'?' ,0x00 ,'?' ,'?' ,'?' ,'?' ,'?', '?' ,'?' ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x12};
+int xoffset=0x3;
+int yoffset=0x7;
+int clickoffset=0x59;
 
-        if (Module32FirstW(snapshot, &moduleEntry)) { // Use Module32FirstW for wide character support
-            do {
-                if (_wcsicmp(moduleEntry.szModule, moduleName) == 0) {
-                    baseAddress = reinterpret_cast<uintptr_t>(moduleEntry.modBaseAddr);
+bool IsWildcard(unsigned char byte) {
+    return byte == '?'; // ASCII code for '?'
+}
+
+std::map<uintptr_t, DWORD> ScanMemory(HANDLE process, MEMORY_BASIC_INFORMATION memInfo) {
+    std::map<uintptr_t, DWORD> validAddresses;
+
+    unsigned char *buffer = (unsigned char *)calloc(1, memInfo.RegionSize);
+    SIZE_T bytesRead;
+
+    // Read memory region into buffer
+    if (ReadProcessMemory(process, memInfo.BaseAddress, buffer, memInfo.RegionSize, &bytesRead)) {
+        for (unsigned int i = 0; i < memInfo.RegionSize - sizeof(bytes); i++) {
+            int j;
+            for (j = 0; j < sizeof(bytes); j++) {
+                if (!IsWildcard(bytes[j]) && bytes[j] != buffer[i + j]) {
                     break;
                 }
-            } while (Module32NextW(snapshot, &moduleEntry)); // Use Module32NextW for wide character support
+            }
+            if (j == sizeof(bytes)) {
+                validAddresses[(uintptr_t)memInfo.BaseAddress + i] = GetProcessId(process);
+                printf("pattern found at: 0x%llX in process %d\n", (uintptr_t)memInfo.BaseAddress + i, GetProcessId(process));
+            }
+        }
+    }
+
+    free(buffer);
+    return validAddresses;
+}
+
+int main(int argc, char* argv[]) {
+    DWORD pid = 0;
+    uintptr_t xAddr=0;
+    uintptr_t yAddr=0;
+    uintptr_t cAddr=0;
+    std::map<uintptr_t, DWORD> allValidAddresses;
+    printf("searching for AOB pattern\n");
+    if (argc > 1) {
+        HANDLE hProcess = 0;
+        pid = atoi(argv[1]);
+        hProcess = OpenProcess(PROCESS_ALL_ACCESS, false, pid);
+
+        if (hProcess == NULL) {
+            printf("Failed to open process. Error code: %d\n", GetLastError());
+            return 1;
         }
 
+        SYSTEM_INFO sysInfo;
+        GetSystemInfo(&sysInfo);
+
+        MEMORY_BASIC_INFORMATION memInfo;
+        unsigned char *addr = 0;
+
+        while (addr < sysInfo.lpMaximumApplicationAddress) {
+            if (VirtualQueryEx(hProcess, addr, &memInfo, sizeof(memInfo)) == sizeof(memInfo)) {
+                if (memInfo.State == MEM_COMMIT && (memInfo.Type == MEM_MAPPED || memInfo.Type == MEM_PRIVATE)) {
+                    std::map<uintptr_t, DWORD> addresses = ScanMemory(hProcess, memInfo);
+                    allValidAddresses.insert(addresses.begin(), addresses.end());
+                }
+                addr += memInfo.RegionSize;
+            } else {
+                addr += sysInfo.dwPageSize;
+            }
+        }
+        if (allValidAddresses.size()!=1){printf("%d AOB pattern matches found, report with firefox version on https://github.com/SubhranshuSharma/SubhranshuSharma.github.io/issues\n", static_cast<int>(allValidAddresses.size()));return 0;}
+        CloseHandle(hProcess);
+    }else {
+        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        PROCESSENTRY32 processEntry;
+        processEntry.dwSize = sizeof(PROCESSENTRY32);
+
+        if (!Process32First(snapshot, &processEntry)) {
+            printf("Failed to get the first process.\n");
+            return 1;
+        }
+
+        do {
+            std::wstring processName(processEntry.szExeFile, processEntry.szExeFile + strlen(processEntry.szExeFile));
+            if (processName == L"firefox.exe") {
+                HANDLE process = OpenProcess(PROCESS_ALL_ACCESS, false, processEntry.th32ProcessID);
+                if (process != NULL) {
+                    SYSTEM_INFO sysInfo;
+                    GetSystemInfo(&sysInfo);
+
+                    MEMORY_BASIC_INFORMATION memInfo;
+                    unsigned char *addr = 0;
+
+                    while (addr < sysInfo.lpMaximumApplicationAddress) {
+                        if (VirtualQueryEx(process, addr, &memInfo, sizeof(memInfo)) == sizeof(memInfo)) {
+                            if (memInfo.State == MEM_COMMIT && (memInfo.Type == MEM_MAPPED || memInfo.Type == MEM_PRIVATE)) {
+                                std::map<uintptr_t, DWORD> addresses = ScanMemory(process, memInfo);
+                                allValidAddresses.insert(addresses.begin(), addresses.end());
+                            }
+                            addr += memInfo.RegionSize;
+                        } else {
+                            addr += sysInfo.dwPageSize;
+                        }
+                    }
+
+                    CloseHandle(process);
+                } else {
+                    printf("Failed to open process %s. Error code: %d\n", processEntry.szExeFile, GetLastError());
+                }
+            }
+        } while (Process32Next(snapshot, &processEntry));
+        if (allValidAddresses.size()==1){pid=(allValidAddresses.begin()->second);
+        }else if (allValidAddresses.size()>1){
+            printf("multiple matches found, see \"about:processes\"(shift+esc) or \"about:memory\" in firefox to find pid of tab (use 'hack_the_world.exe <pid>' for faster start)\nenter one pid: ");
+            scanf("%u", &pid);
+            for (auto it = allValidAddresses.begin(); it != allValidAddresses.end();) {
+                if (it->second != pid) {
+                    it = allValidAddresses.erase(it);
+                } else {
+                    it++;
+                }
+            }
+        }else if (allValidAddresses.size()==0){printf("no AOB pattern match found, report with firefox version on https://github.com/SubhranshuSharma/SubhranshuSharma.github.io/issues\n");return 0;}
         CloseHandle(snapshot);
     }
-
-    return baseAddress;
-}
-
-uintptr_t FindDMAAddy(HANDLE hProc, uintptr_t ptr, std::vector<unsigned int> offsets)
-{
-    uintptr_t addr = ptr;
-    for (unsigned int i = 0; i < offsets.size(); ++i)
-    {
-        if(!ReadProcessMemory(hProc, (BYTE*)addr, &addr, sizeof(addr), 0)){
-            return 0;
-        }
-        addr += offsets[i];
-    }
-    return addr;
-}
-int main(int argc, char* argv[]){
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <PID> (shift+esc in firefox and find PID of tab)" << std::endl;
-        return 1;
-    }
-    DWORD procId = std::stoi(argv[1]);    uintptr_t moduleBase = GetModuleBaseAddress(procId, L"xul.dll");
-    
+    xAddr=(allValidAddresses.begin()->first)+xoffset;
+    yAddr=(allValidAddresses.begin()->first)+yoffset;
+    cAddr=(allValidAddresses.begin()->first)+clickoffset;
+    printf("using xAddr: 0x%llX, yAddr: 0x%llX, cAddr: 0x%llX, PID: %d\nlook down then right to calibrate axes\n", xAddr, yAddr, cAddr, pid);
     HANDLE hProcess = 0;
-    hProcess = OpenProcess(PROCESS_VM_READ, FALSE, procId);
-    uintptr_t dynamicPtrBaseAddrx = moduleBase + 0x6D04F68;
-    uintptr_t dynamicPtrBaseAddry = moduleBase + 0x6D02F68;
-    uintptr_t dynamicPtrBaseAddrclick = moduleBase + 0x6D09438;
-
-    std::vector<unsigned int> yOffsets = {0x28, 0x18, 0x88, 0x20, 0x148, 0x78, 0xC};
-    std::vector<unsigned int> xOffsets = {0xB0, 0x50, 0xA8, 0x1B8, 0x8, 0x50, 0x8};
-    std::vector<unsigned int> cOffsets = {0x1D8, 0x690, 0x30, 0x30, 0x38, 0x38, 0x8};
-    uintptr_t yAddr = FindDMAAddy(hProcess, dynamicPtrBaseAddry, yOffsets);
-    uintptr_t xAddr = FindDMAAddy(hProcess, dynamicPtrBaseAddrx, xOffsets);
-    uintptr_t cAddr = FindDMAAddy(hProcess, dynamicPtrBaseAddrclick, cOffsets);
-    bool yOffsetChainFailed = false, xOffsetChainFailed = false, cOffsetChainFailed = false;
-    if (xAddr == 0) {xOffsetChainFailed=true;std::cout << "Failed to resolve xAddr offset chain. x axis disabled" << std::endl;}
-    if (yAddr == 0) {yOffsetChainFailed=true;std::cout << "Failed to resolve yAddr offset chain. y axis disabled" << std::endl;}
-    if (cAddr == 0) {cOffsetChainFailed=true;std::cout << "Failed to resolve cAddr offset chain. clicks disabled" << std::endl;}
+    hProcess = OpenProcess(PROCESS_VM_READ, FALSE, pid);
     DWORD lastDoubleClickTime = 0;
     INPUT input;
     memset(&input, 0, sizeof(INPUT));
     input.type = INPUT_MOUSE;
     input.mi.dwFlags = MOUSEEVENTF_MOVE;
-    int yValue = 0;
-    int xValue = 0;
-    int cValue = 0;
-    int max_y = 0, max_x = 0, mid_y = 0, mid_x = 0;
+    int xValue = 0, yValue = 0, cValue = 0;
+    int max_x = 0, max_y = 0, mid_x = 0, mid_y = 0, min_c=2147483647;
     while(1){
-        ReadProcessMemory(hProcess, (BYTE*)yAddr, &yValue, sizeof(yValue), nullptr);
         ReadProcessMemory(hProcess, (BYTE*)xAddr, &xValue, sizeof(xValue), nullptr);
+        ReadProcessMemory(hProcess, (BYTE*)yAddr, &yValue, sizeof(yValue), nullptr);
         ReadProcessMemory(hProcess, (BYTE*)cAddr, &cValue, sizeof(cValue), nullptr);
-        if (!yOffsetChainFailed) {
-            if(yValue == 0){
-                input.mi.dx = 0;
-                input.mi.dy = -1;
-                SendInput(3, &input, sizeof(INPUT));
-            }else if (yValue > max_y-5){
-                input.mi.dx = 0;
-                input.mi.dy = 1;
-                SendInput(3, &input, sizeof(INPUT));
-                if (yValue>max_y){max_y=yValue;mid_y=yValue/2;}
-            }else if(std::abs(yValue-mid_y)>.1*yValue){max_y=yValue;mid_y=yValue/2;}
-        }
-        if (!xOffsetChainFailed) {
-            if(xValue == 0){
-                input.mi.dx = -1;
-                input.mi.dy = 0;
-                SendInput(3, &input, sizeof(INPUT));
-            }else if (xValue > max_x-5){
-                input.mi.dx = 1;
-                input.mi.dy = 0;
-                SendInput(3, &input, sizeof(INPUT));
-                if (xValue>max_x){max_x=xValue;mid_x=xValue/2;}
-            }else if(std::abs(xValue-mid_x)>.1*xValue){max_x=xValue;mid_x=xValue/2;}
-        }
-        if (!cOffsetChainFailed) {
-            if (cValue == 0) {
-                DWORD currentTime = GetTickCount();
-                if (currentTime - lastDoubleClickTime >= 2000) {
-                    input.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
-                    SendInput(1, &input, sizeof(INPUT));
-                    input.mi.dwFlags = MOUSEEVENTF_LEFTUP;
-                    SendInput(1, &input, sizeof(INPUT));
-                    Sleep(100);
-                    input.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
-                    SendInput(1, &input, sizeof(INPUT));
-                    input.mi.dwFlags = MOUSEEVENTF_LEFTUP;
-                    SendInput(1, &input, sizeof(INPUT));
-                    lastDoubleClickTime = currentTime;
-                }
+        if(yValue == 0){
+            input.mi.dx = 0;
+            input.mi.dy = -1;
+            SendInput(3, &input, sizeof(INPUT));
+        }else if (yValue > .95*max_y){
+            input.mi.dx = 0;
+            input.mi.dy = 1;
+            SendInput(3, &input, sizeof(INPUT));
+            if (yValue>max_y){max_y=yValue;mid_y=yValue/2;printf("y axis (re)calibrated\n");}
+        }else if(std::abs(yValue-mid_y)>.2*yValue){mid_y=yValue;max_y=yValue*2;printf("y axis (re)calibrated\n");}
+        if(xValue == 0){
+            input.mi.dx = -1;
+            input.mi.dy = 0;
+            SendInput(3, &input, sizeof(INPUT));
+        }else if (xValue > .95*max_x){
+            input.mi.dx = 1;
+            input.mi.dy = 0;
+            SendInput(3, &input, sizeof(INPUT));
+            if (xValue>max_x){max_x=xValue;mid_x=xValue/2;printf("x axis (re)calibrated\n");}
+        }else if(std::abs(xValue-mid_x)>.2*xValue){mid_x=xValue;max_x=xValue*2;printf("x axis (re)calibrated\n");}
+        if (cValue == min_c+64) {
+            DWORD currentTime = GetTickCount();
+            if (currentTime - lastDoubleClickTime >= 2000) {
+                input.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
+                SendInput(1, &input, sizeof(INPUT));
+                input.mi.dwFlags = MOUSEEVENTF_LEFTUP;
+                SendInput(1, &input, sizeof(INPUT));
+                Sleep(100);
+                input.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
+                SendInput(1, &input, sizeof(INPUT));
+                input.mi.dwFlags = MOUSEEVENTF_LEFTUP;
+                SendInput(1, &input, sizeof(INPUT));
+                lastDoubleClickTime = currentTime;
+                input.mi.dwFlags = MOUSEEVENTF_MOVE;
             }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(40));
+        }else if (cValue<min_c){min_c=cValue;}
+        Sleep(40);
     }
     CloseHandle(hProcess);
     return 0;

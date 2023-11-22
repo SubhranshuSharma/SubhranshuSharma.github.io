@@ -1,0 +1,2 @@
+*.exe filter=lfs diff=lfs merge=lfs -text
+binaries/sgmc_lite filter=lfs diff=lfs merge=lfs -text
