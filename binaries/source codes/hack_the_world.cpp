@@ -7,13 +7,13 @@
 #include <thread>
 
 
-unsigned char bytes[] = { 0x7F, 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', '?', '?', '?', '?', 0x00, 0x00, '?', '?', '?', '?', '?', '?', 0x00, 0x00, 0x00, '?', '?', '?', '?', '?', 0x00, 0x00, 0xC0, '?', '?', '?', '?', '?', 0x00, 0x00 ,'?', '?', '?', '?', '?', '?', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, '?', '?' ,'?' ,'?' ,'?', '?' ,0x00, 0x00 ,'?' ,'?' ,0xD0 ,0x00 ,0x20 ,0x00 ,'?' ,0x00 ,'?' ,'?' ,'?' ,'?' ,'?', '?' ,'?' ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x12};
+unsigned char bytes[] = { 0x7F, 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', 0x00, 0x00, '?', '?', '?', '?', '?', '?', 0x00, 0x00, '?', '?', '?', '?', '?', '?', 0x00, 0x00, 0x00, '?', '?', '?', '?', '?', 0x00, 0x00, 0xC0, '?', '?', '?', '?', '?', 0x00, 0x00 ,'?', '?', '?', '?', '?', '?', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 ,'?' ,'?', '?', '?', '?', '?', 0x00, 0x00, '?', '?' ,'?' ,'?' ,'?', '?' ,0x00, 0x00 ,'?' ,'?' ,0xD0 ,0x00 ,0x20 ,0x00 ,'?' ,0x00 ,'?' ,'?' ,'?' ,'?' ,'?', '?' ,'?' ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x12};
 int xoffset=0x3;
 int yoffset=0x7;
 int clickoffset=0x59;
 
 bool IsWildcard(unsigned char byte) {
-    return byte == '?'; // ASCII code for '?'
+    return byte == '?';
 }
 
 std::map<uintptr_t, DWORD> ScanMemory(HANDLE process, MEMORY_BASIC_INFORMATION memInfo) {
@@ -33,7 +33,7 @@ std::map<uintptr_t, DWORD> ScanMemory(HANDLE process, MEMORY_BASIC_INFORMATION m
             }
             if (j == sizeof(bytes)) {
                 validAddresses[(uintptr_t)memInfo.BaseAddress + i] = GetProcessId(process);
-                printf("pattern found at: 0x%llX in process %d\n", (uintptr_t)memInfo.BaseAddress + i, GetProcessId(process));
+                printf("pattern found at 0x%llX in process %d\n", (uintptr_t)memInfo.BaseAddress + i, GetProcessId(process));
             }
         }
     }
@@ -42,44 +42,47 @@ std::map<uintptr_t, DWORD> ScanMemory(HANDLE process, MEMORY_BASIC_INFORMATION m
     return validAddresses;
 }
 
+void ScanPages(HANDLE process, std::map<uintptr_t, DWORD> &allValidAddresses){
+    SYSTEM_INFO sysInfo;
+    GetSystemInfo(&sysInfo);
+
+    MEMORY_BASIC_INFORMATION memInfo;
+    unsigned char *addr = 0;
+
+    while (addr < sysInfo.lpMaximumApplicationAddress) {
+        if (VirtualQueryEx(process, addr, &memInfo, sizeof(memInfo)) == sizeof(memInfo)) {
+            if (memInfo.State == MEM_COMMIT && (memInfo.Type == MEM_MAPPED || memInfo.Type == MEM_PRIVATE)) {
+                std::map<uintptr_t, DWORD> addresses = ScanMemory(process, memInfo);
+                allValidAddresses.insert(addresses.begin(), addresses.end());
+            }
+            addr += memInfo.RegionSize;
+        } else {
+            addr += sysInfo.dwPageSize;
+        }
+    }
+}
+
 int main(int argc, char* argv[]) {
     DWORD pid = 0;
     uintptr_t xAddr=0;
     uintptr_t yAddr=0;
     uintptr_t cAddr=0;
     std::map<uintptr_t, DWORD> allValidAddresses;
+    HANDLE hProcess=0;
+    HANDLE snapshot=0;
     printf("searching for AOB pattern\n");
     if (argc > 1) {
-        HANDLE hProcess = 0;
         pid = atoi(argv[1]);
-        hProcess = OpenProcess(PROCESS_ALL_ACCESS, false, pid);
-
+        hProcess = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION , false, pid);
         if (hProcess == NULL) {
             printf("Failed to open process. Error code: %d\n", GetLastError());
             return 1;
         }
-
-        SYSTEM_INFO sysInfo;
-        GetSystemInfo(&sysInfo);
-
-        MEMORY_BASIC_INFORMATION memInfo;
-        unsigned char *addr = 0;
-
-        while (addr < sysInfo.lpMaximumApplicationAddress) {
-            if (VirtualQueryEx(hProcess, addr, &memInfo, sizeof(memInfo)) == sizeof(memInfo)) {
-                if (memInfo.State == MEM_COMMIT && (memInfo.Type == MEM_MAPPED || memInfo.Type == MEM_PRIVATE)) {
-                    std::map<uintptr_t, DWORD> addresses = ScanMemory(hProcess, memInfo);
-                    allValidAddresses.insert(addresses.begin(), addresses.end());
-                }
-                addr += memInfo.RegionSize;
-            } else {
-                addr += sysInfo.dwPageSize;
-            }
-        }
+        ScanPages(hProcess,allValidAddresses);
         if (allValidAddresses.size()!=1){printf("%d AOB pattern matches found, report with firefox version on https://github.com/SubhranshuSharma/SubhranshuSharma.github.io/issues\n", static_cast<int>(allValidAddresses.size()));return 0;}
         CloseHandle(hProcess);
     }else {
-        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         PROCESSENTRY32 processEntry;
         processEntry.dwSize = sizeof(PROCESSENTRY32);
 
@@ -91,51 +94,33 @@ int main(int argc, char* argv[]) {
         do {
             std::wstring processName(processEntry.szExeFile, processEntry.szExeFile + strlen(processEntry.szExeFile));
             if (processName == L"firefox.exe") {
-                HANDLE process = OpenProcess(PROCESS_ALL_ACCESS, false, processEntry.th32ProcessID);
-                if (process != NULL) {
-                    SYSTEM_INFO sysInfo;
-                    GetSystemInfo(&sysInfo);
-
-                    MEMORY_BASIC_INFORMATION memInfo;
-                    unsigned char *addr = 0;
-
-                    while (addr < sysInfo.lpMaximumApplicationAddress) {
-                        if (VirtualQueryEx(process, addr, &memInfo, sizeof(memInfo)) == sizeof(memInfo)) {
-                            if (memInfo.State == MEM_COMMIT && (memInfo.Type == MEM_MAPPED || memInfo.Type == MEM_PRIVATE)) {
-                                std::map<uintptr_t, DWORD> addresses = ScanMemory(process, memInfo);
-                                allValidAddresses.insert(addresses.begin(), addresses.end());
-                            }
-                            addr += memInfo.RegionSize;
-                        } else {
-                            addr += sysInfo.dwPageSize;
-                        }
-                    }
-
-                    CloseHandle(process);
+                hProcess = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION , false, processEntry.th32ProcessID);
+                if (hProcess != NULL) {
+                    ScanPages(hProcess, allValidAddresses);
                 } else {
                     printf("Failed to open process %s. Error code: %d\n", processEntry.szExeFile, GetLastError());
                 }
             }
         } while (Process32Next(snapshot, &processEntry));
-        if (allValidAddresses.size()==1){pid=(allValidAddresses.begin()->second);
-        }else if (allValidAddresses.size()>1){
-            printf("multiple matches found, see \"about:processes\"(shift+esc) or \"about:memory\" in firefox to find pid of tab (use 'hack_the_world.exe <pid>' for faster start)\nenter one pid: ");
-            scanf("%u", &pid);
-            for (auto it = allValidAddresses.begin(); it != allValidAddresses.end();) {
-                if (it->second != pid) {
-                    it = allValidAddresses.erase(it);
-                } else {
-                    it++;
-                }
-            }
-        }else if (allValidAddresses.size()==0){printf("no AOB pattern match found, report with firefox version on https://github.com/SubhranshuSharma/SubhranshuSharma.github.io/issues\n");return 0;}
-        CloseHandle(snapshot);
     }
+    if (allValidAddresses.size()==1){pid=(allValidAddresses.begin()->second);
+    }else if (allValidAddresses.size()>1){
+        printf("multiple matches found, see \"about:processes\"(shift+esc) or \"about:memory\" in firefox to find pid of tab (use 'hack_the_world.exe <pid>' for faster start)\nenter one pid: ");
+        scanf("%u", &pid);
+        for (auto it = allValidAddresses.begin(); it != allValidAddresses.end();) {
+            if (it->second != pid) {
+                it = allValidAddresses.erase(it);
+            } else {
+                it++;
+            }
+        }
+    }else if (allValidAddresses.size()==0){printf("no AOB pattern match found, report with firefox version on https://github.com/SubhranshuSharma/SubhranshuSharma.github.io/issues\n");return 0;}
+    if (snapshot){CloseHandle(snapshot);}
+    if (hProcess){CloseHandle(hProcess);}
     xAddr=(allValidAddresses.begin()->first)+xoffset;
     yAddr=(allValidAddresses.begin()->first)+yoffset;
     cAddr=(allValidAddresses.begin()->first)+clickoffset;
     printf("using xAddr: 0x%llX, yAddr: 0x%llX, cAddr: 0x%llX, PID: %d\nlook down then right to calibrate axes\n", xAddr, yAddr, cAddr, pid);
-    HANDLE hProcess = 0;
     hProcess = OpenProcess(PROCESS_VM_READ, FALSE, pid);
     DWORD lastDoubleClickTime = 0;
     INPUT input;
