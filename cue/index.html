@@ -28,6 +28,19 @@ header{padding:0 2rem;height:54px;display:flex;align-items:center;gap:1rem;borde
 .tab-btn.tw.active{color:var(--tw);border-bottom-color:var(--tw);background:var(--tw-glow);}
 .tab-btn.rd.active{color:var(--rd);border-bottom-color:var(--rd);background:var(--rd-glow);}
 
+/* ── FOLDER SELECTOR BAR ── */
+.folder-bar{display:flex;align-items:center;gap:.6rem;padding:.5rem 1.5rem;border-bottom:1px solid var(--border);background:var(--surface2);flex-wrap:wrap;}
+.folder-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap;}
+.folder-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .65rem;background:var(--surface);border:1px solid var(--border);border-radius:3px;font-size:.7rem;color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap;font-family:'DM Mono',monospace;}
+.folder-chip:hover{border-color:var(--text);color:var(--text);}
+.folder-chip.active-folder{border-color:var(--accent);color:var(--accent);background:rgba(240,224,64,.07);}
+.folder-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6;}
+.custom-folder-wrap{display:flex;align-items:center;gap:.4rem;}
+.custom-folder-input{background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'DM Mono',monospace;font-size:.68rem;padding:.2rem .5rem;outline:none;width:160px;transition:border-color .15s;}
+.custom-folder-input:focus{border-color:var(--accent);}
+.custom-folder-btn{padding:.2rem .6rem;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:'DM Mono',monospace;font-size:.68rem;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.custom-folder-btn:hover{border-color:var(--accent);color:var(--accent);}
+
 .toolbar{display:flex;align-items:center;gap:.5rem;padding:.65rem 1.5rem;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap;}
 .toolbar-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-right:.2rem;}
 .col-pill{display:inline-flex;align-items:center;gap:.25rem;padding:.22rem .55rem;background:var(--surface2);border:1px solid var(--border);border-radius:3px;font-size:.68rem;color:var(--text);cursor:grab;user-select:none;transition:all .12s;white-space:nowrap;}
@@ -96,7 +109,23 @@ tr:hover td{background:var(--surface2);}
 #text-modal-col{font-family:'Syne',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;}
 #text-modal-close{background:none;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:'DM Mono',monospace;font-size:.75rem;padding:.15rem .5rem;cursor:pointer;transition:all .15s;}
 #text-modal-close:hover{border-color:var(--text);color:var(--text);}
-#text-modal-body{padding:1rem;overflow-y:auto;font-size:.82rem;line-height:1.7;color:var(--text);word-break:break-word;white-space:pre-wrap;}
+#text-modal-body{padding:1rem;overflow-y:auto;font-size:.82rem;line-height:1.7;color:var(--text);word-break:break-word;
+  /* KEY FIX: preserve newlines and whitespace */
+  white-space:pre-wrap;}
+
+/* ── GRAPH MODAL ── */
+.graph-btn{background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:'DM Mono',monospace;font-size:.68rem;padding:.15rem .55rem;cursor:pointer;transition:all .18s;display:inline-flex;align-items:center;gap:.3rem;}
+.graph-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(240,224,64,.06);}
+#graph-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:1100;backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:1.5rem;}
+#graph-modal-backdrop.open{display:flex;}
+#graph-modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;width:min(95vw,1200px);height:min(88vh,780px);display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,.7);overflow:hidden;}
+#graph-modal-header{padding:.8rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+#graph-modal-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;letter-spacing:.02em;color:var(--text);}
+#graph-modal-subtitle{font-size:.7rem;color:var(--muted);margin-left:.6rem;}
+#graph-modal-close{background:none;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:'DM Mono',monospace;font-size:.75rem;padding:.2rem .6rem;cursor:pointer;transition:all .15s;}
+#graph-modal-close:hover{border-color:var(--text);color:var(--text);}
+#graph-modal-body{flex:1;padding:1.2rem;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
+#graph-canvas{width:100%;height:100%;}
 </style>
 </head>
 <body>
@@ -112,6 +141,22 @@ tr:hover td{background:var(--surface2);}
   </div>
 </div>
 
+<!-- Graph modal -->
+<div id="graph-modal-backdrop" role="dialog" aria-modal="true">
+  <div id="graph-modal">
+    <div id="graph-modal-header">
+      <div style="display:flex;align-items:baseline;">
+        <span id="graph-modal-title">Date Distribution</span>
+        <span id="graph-modal-subtitle"></span>
+      </div>
+      <button id="graph-modal-close" onclick="closeGraphModal()">✕ close</button>
+    </div>
+    <div id="graph-modal-body">
+      <canvas id="graph-canvas"></canvas>
+    </div>
+  </div>
+</div>
+
 <header>
   <div class="brand">insights<em>_</em>explorer</div>
   <div class="tabs">
@@ -121,8 +166,11 @@ tr:hover td{background:var(--surface2);}
   </div>
 </header>
 
+<!-- Folder selector (rendered by JS) -->
+<div id="folder-bar" class="folder-bar"></div>
+
 <div id="panel-yt" class="panel active">
-  <div class="loading" id="load-yt"><div class="spinner"></div>Loading youtube.csv …</div>
+  <div class="loading" id="load-yt"><div class="spinner"></div><span id="load-yt-msg">Loading youtube.csv …</span></div>
   <div id="box-yt" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
     <div class="toolbar" id="toolbar-yt"></div>
     <div class="statusbar" id="status-yt"></div>
@@ -130,7 +178,7 @@ tr:hover td{background:var(--surface2);}
   </div>
 </div>
 <div id="panel-tw" class="panel">
-  <div class="loading" id="load-tw"><div class="spinner"></div>Loading twitter.csv …</div>
+  <div class="loading" id="load-tw"><div class="spinner"></div><span id="load-tw-msg">Loading twitter.csv …</span></div>
   <div id="box-tw" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
     <div class="toolbar" id="toolbar-tw"></div>
     <div class="statusbar" id="status-tw"></div>
@@ -138,7 +186,7 @@ tr:hover td{background:var(--surface2);}
   </div>
 </div>
 <div id="panel-rd" class="panel">
-  <div class="loading" id="load-rd"><div class="spinner"></div>Loading reddit.csv …</div>
+  <div class="loading" id="load-rd"><div class="spinner"></div><span id="load-rd-msg">Loading reddit.csv …</span></div>
   <div id="box-rd" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
     <div class="toolbar" id="toolbar-rd"></div>
     <div class="statusbar" id="status-rd"></div>
@@ -147,19 +195,106 @@ tr:hover td{background:var(--surface2);}
 </div>
 
 <script>
-// ── CONFIG ──────────────────────────────────────────────────
-const FILES = { yt:'youtube.csv', tw:'twitter.csv', rd:'reddit.csv' };
+// ── FOLDER CONFIG ────────────────────────────────────────────
+// Add known folders here. '' = same directory as index.html.
+// Each entry: { id, label, path }
+// path should end with '/' if non-empty, or be '' for root.
+const KNOWN_FOLDERS = [
+  { id: 'root',         label: 'root (./)'},
+  { id: 'icici_lombard', label: 'icici_lombard' },
+  // Add more known folders below — they'll show as chips:
+  // { id: 'hdfc_ergo',  label: 'hdfc_ergo' },
+  // { id: 'bajaj',      label: 'bajaj' },
+];
 
-// Columns that should NEVER be sorted/filtered (just display)
+// Files per tab within a folder
+const FILE_NAMES = { yt: 'youtube.csv', tw: 'twitter.csv', rd: 'reddit.csv' };
+
+// Active folder state (persisted)
+let activeFolder = (() => {
+  try { return localStorage.getItem('active_folder') || 'icici_lombard'; } catch(e){ return 'icici_lombard'; }
+})();
+
+function folderPath(folderId) {
+  if (!folderId || folderId === 'root') return '';
+  return folderId + '/';
+}
+
+function filePath(folderId, tabId) {
+  return folderPath(folderId) + FILE_NAMES[tabId];
+}
+
+// ── FOLDER BAR ───────────────────────────────────────────────
+function buildFolderBar() {
+  const bar = document.getElementById('folder-bar');
+  bar.innerHTML = '<span class="folder-label">📁 Folder</span>';
+
+  KNOWN_FOLDERS.forEach(f => {
+    const chip = document.createElement('button');
+    chip.className = 'folder-chip' + (activeFolder === f.id ? ' active-folder' : '');
+    chip.innerHTML = '<span class="folder-dot"></span>' + f.label;
+    chip.title = folderPath(f.id) || './';
+    chip.onclick = () => switchFolder(f.id);
+    bar.appendChild(chip);
+  });
+
+  // Custom folder input
+  const wrap = document.createElement('div');
+  wrap.className = 'custom-folder-wrap';
+  wrap.innerHTML =
+    '<input class="custom-folder-input" id="custom-folder-input" placeholder="other/folder/path…" title="Type a folder path and press Load">' +
+    '<button class="custom-folder-btn" onclick="loadCustomFolder()">Load</button>';
+  bar.appendChild(wrap);
+}
+
+function switchFolder(folderId) {
+  activeFolder = folderId;
+  try { localStorage.setItem('active_folder', folderId); } catch(e){}
+  buildFolderBar();
+  // Reset all tabs so they reload from new folder
+  ['yt','tw','rd'].forEach(id => {
+    S[id].loaded = false;
+    S[id].allRows = [];
+    S[id].columns = [];
+    S[id].origCols = [];
+    S[id].colTypes = {};
+    S[id].sortCol = null;
+    S[id].sortDir = 'asc';
+    S[id].filters = {};
+    // Reset UI
+    document.getElementById('box-'+id).style.display = 'none';
+    document.getElementById('load-'+id).style.display = 'flex';
+    document.getElementById('load-'+id).querySelector('.spinner').style.display = '';
+    document.getElementById('load-'+id+'-msg').textContent = 'Loading ' + FILE_NAMES[id] + '…';
+    document.getElementById(id+'-count').textContent = '';
+  });
+  // Reload currently visible tab
+  const activeTab = document.querySelector('.tab-btn.active');
+  const tabId = activeTab ? [...activeTab.classList].find(c=>['yt','tw','rd'].includes(c)) : 'yt';
+  loadData(tabId);
+}
+
+function loadCustomFolder() {
+  const inp = document.getElementById('custom-folder-input');
+  let val = (inp.value || '').trim().replace(/\/+$/, ''); // strip trailing slash
+  if (!val) return;
+  // Check if already in list
+  const existing = KNOWN_FOLDERS.find(f => f.id === val);
+  if (!existing) {
+    KNOWN_FOLDERS.push({ id: val, label: val });
+  }
+  inp.value = '';
+  switchFolder(val);
+}
+
+// ── CONFIG ──────────────────────────────────────────────────
 const NO_SORT_COLS = new Set(['original_text']);
 
-// Detect if a column's values are mostly numeric
 function detectColType(rows, col) {
   const vals = rows.map(r => r[col]).filter(v => v !== undefined && v !== '');
   if (!vals.length) return 'text';
   const numCount = vals.filter(v => !isNaN(Number(v)) && v.trim() !== '').length;
   if (numCount / vals.length >= 0.8) return 'numeric';
-  // Detect datetime: look for ISO-like strings or common date patterns
   const dateCount = vals.filter(v => {
     const d = new Date(v);
     return !isNaN(d.getTime()) && /\d{4}/.test(v);
@@ -168,7 +303,6 @@ function detectColType(rows, col) {
   return 'text';
 }
 
-// Build frequency-sorted unique values for text cols
 function getFreqSortedUniq(rows, col) {
   const freq = {};
   rows.forEach(r => {
@@ -216,9 +350,9 @@ let dragSrc = null;
 // ── TEXT MODAL ──────────────────────────────────────────────
 function openTextModal(colName, text) {
   document.getElementById('text-modal-col').textContent = colName.replace(/_/g,' ');
+  // Use textContent so newlines in the string are preserved by white-space:pre-wrap
   document.getElementById('text-modal-body').textContent = text;
   document.getElementById('text-modal-backdrop').classList.add('open');
-  document.getElementById('text-modal-backdrop').focus();
 }
 function closeTextModal() {
   document.getElementById('text-modal-backdrop').classList.remove('open');
@@ -243,7 +377,6 @@ function attachResizer(th, id, col) {
   const resizer = document.createElement('div');
   resizer.className = 'col-resizer';
   th.appendChild(resizer);
-
   let startX, startW;
   function onMouseMove(e) {
     const dx = (e.clientX || (e.touches && e.touches[0].clientX) || 0) - startX;
@@ -260,20 +393,17 @@ function attachResizer(th, id, col) {
     document.removeEventListener('touchend', onMouseUp);
     saveColWidths(id, S[id].colWidths);
   }
-
   resizer.addEventListener('mousedown', e => {
     e.preventDefault();
     resizer.classList.add('active');
-    startX = e.clientX;
-    startW = th.offsetWidth;
+    startX = e.clientX; startW = th.offsetWidth;
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   });
   resizer.addEventListener('touchstart', e => {
     e.preventDefault();
     resizer.classList.add('active');
-    startX = e.touches[0].clientX;
-    startW = th.offsetWidth;
+    startX = e.touches[0].clientX; startW = th.offsetWidth;
     document.addEventListener('touchmove', onMouseMove, {passive:false});
     document.addEventListener('touchend', onMouseUp);
   }, {passive:false});
@@ -281,12 +411,22 @@ function attachResizer(th, id, col) {
 
 // ── LOAD DATA (PapaParse) ────────────────────────────────────
 function loadData(id) {
-  Papa.parse(FILES[id], {
+  // Show loading state
+  document.getElementById('box-'+id).style.display = 'none';
+  const loadEl = document.getElementById('load-'+id);
+  loadEl.style.display = 'flex';
+  loadEl.querySelector('.spinner').style.display = '';
+  const path = filePath(activeFolder, id);
+  document.getElementById('load-'+id+'-msg').textContent = 'Loading ' + path + ' …';
+
+  Papa.parse(path, {
     download: true,
     header: true,
     skipEmptyLines: true,
     transformHeader: h => h.trim(),
-    transform: val => val.replace(/\r\n|\r|\n/g, ' ').trim(),
+    // KEY FIX: do NOT strip newlines from values — just trim leading/trailing whitespace
+    // but preserve internal newlines so the modal can show them.
+    transform: val => val.trim(),
     complete(results) {
       const headers = results.meta.fields;
       const rows    = results.data;
@@ -297,12 +437,11 @@ function loadData(id) {
       S[id].colWidths = loadColWidths(id);
       S[id].loaded   = true;
 
-      // Detect column types dynamically
       headers.forEach(col => {
         S[id].colTypes[col] = NO_SORT_COLS.has(col) ? 'nosort' : detectColType(rows, col);
       });
 
-      document.getElementById('load-'+id).style.display = 'none';
+      loadEl.style.display = 'none';
       const box = document.getElementById('box-'+id);
       box.style.display = 'flex';
       document.getElementById(id+'-count').textContent = rows.length;
@@ -311,8 +450,10 @@ function loadData(id) {
       renderTable(id);
     },
     error(err) {
-      document.getElementById('load-'+id).innerHTML =
-        '<div style="color:#f87171;text-align:center;line-height:2">⚠ Could not load <b>'+FILES[id]+'</b><br><span style="color:var(--muted);font-size:.72rem;">Place the CSV in the same folder as index.html.<br>'+err.message+'</span></div>';
+      loadEl.querySelector('.spinner').style.display = 'none';
+      loadEl.innerHTML =
+        '<div style="color:#f87171;text-align:center;line-height:2">⚠ Could not load <b>' + path + '</b><br>' +
+        '<span style="color:var(--muted);font-size:.72rem;">Make sure the CSV exists at that path relative to index.html.<br>' + err.message + '</span></div>';
     }
   });
 }
@@ -361,14 +502,12 @@ function clearFilters(id) { S[id].filters={}; renderTable(id); }
 function renderTable(id) {
   const s = S[id], cols = s.columns;
 
-  // Build filter options: frequency-sorted unique values for text cols
   const freqUniq = {};
   cols.forEach(col => {
     if (s.colTypes[col] === 'text')
       freqUniq[col] = getFreqSortedUniq(s.allRows, col);
   });
 
-  // Filter
   let rows = s.allRows.filter(row => cols.every(col => {
     const fv = s.filters[col];
     if (!fv || fv === '__ALL__') return true;
@@ -377,7 +516,6 @@ function renderTable(id) {
     return row[col] === fv;
   }));
 
-  // Sort
   if (s.sortCol) {
     const col = s.sortCol, dir = s.sortDir === 'asc' ? 1 : -1;
     const type = s.colTypes[col];
@@ -388,7 +526,6 @@ function renderTable(id) {
     });
   }
 
-  // Status bar
   const af = Object.entries(s.filters).filter(([,v])=>v&&v!=='__ALL__');
   document.getElementById('status-'+id).innerHTML =
     'Showing <span>'+rows.length+'</span> of <span>'+s.allRows.length+'</span> rows' +
@@ -396,7 +533,6 @@ function renderTable(id) {
     (s.sortCol?' &middot; sorted by <span>'+s.sortCol+'</span> ('+s.sortDir+')':'') +
     (af.length?' <button class="clear-btn" onclick="clearFilters(\''+id+'\')">✕ clear all</button>':'');
 
-  // THEAD
   const thead = document.getElementById('thead-'+id);
   thead.innerHTML = '';
   const tr = document.createElement('tr');
@@ -405,7 +541,6 @@ function renderTable(id) {
     const type = s.colTypes[col];
     const th = document.createElement('th');
 
-    // Apply saved/default width
     const savedW = s.colWidths[col];
     const defaultW = (col === 'original_text' || col === 'summary_insight') ? 260
                    : (type === 'numeric') ? 120
@@ -419,7 +554,6 @@ function renderTable(id) {
     const lbl = document.createElement('div'); lbl.className = 'th-label';
     lbl.textContent = col.replace(/_/g,' ');
 
-    // Sort button: numeric, datetime, and text cols all get sorting (except nosort)
     if (type !== 'nosort') {
       const sb = document.createElement('button');
       sb.className = 'sort-btn' + (s.sortCol===col ? (s.sortDir==='asc'?' asc':' desc') : '');
@@ -434,7 +568,6 @@ function renderTable(id) {
     }
     inner.appendChild(lbl);
 
-    // Filter control
     if (type === 'numeric') {
       const inp = document.createElement('input'); inp.type = 'number'; inp.step = 'any';
       inp.className = 'filter-input'; inp.placeholder = 'exact…';
@@ -442,9 +575,8 @@ function renderTable(id) {
       inp.oninput = () => { s.filters[col] = inp.value || '__ALL__'; renderTable(id); };
       inner.appendChild(inp);
     } else if (type === 'nosort') {
-      // no filter for original_text, just show label
+      // no filter
     } else if (type === 'datetime') {
-      // dropdown sorted by date ascending
       const vals = [...new Set(s.allRows.map(r=>r[col]).filter(v=>v!==undefined&&v!==''))]
         .sort((a,b) => new Date(a) - new Date(b));
       const sel = document.createElement('select'); sel.className = 'filter-select';
@@ -454,7 +586,6 @@ function renderTable(id) {
       sel.onchange = () => { s.filters[col] = sel.value; renderTable(id); };
       inner.appendChild(sel);
     } else {
-      // TEXT: frequency-sorted dropdown
       const sel = document.createElement('select'); sel.className = 'filter-select';
       sel.appendChild(new Option('— all —','__ALL__'));
       (freqUniq[col] || []).forEach(v => {
@@ -471,7 +602,6 @@ function renderTable(id) {
   });
   thead.appendChild(tr);
 
-  // TBODY
   const tbody = document.getElementById('tbody-'+id);
   tbody.innerHTML = '';
   if (!rows.length) {
@@ -504,10 +634,12 @@ function renderTable(id) {
         td.appendChild(a);
 
       } else if (col === 'original_text' || col === 'summary_insight') {
-        // Expandable on click/tap
         td.className = 'text-expand-cell';
-        td.textContent = val.length > 60 ? val.slice(0, 58) + '…' : val;
+        // For the cell preview: collapse newlines to spaces so the row stays single-line
+        const preview = val.replace(/\r\n|\r|\n/g, ' ');
+        td.textContent = preview.length > 60 ? preview.slice(0, 58) + '…' : preview;
         td.title = 'Click to read full text';
+        // Modal gets the raw value with all original newlines intact
         td.addEventListener('click', () => openTextModal(col, val));
 
       } else {
@@ -521,7 +653,332 @@ function renderTable(id) {
   tbody.appendChild(frag);
 }
 
+// ── GRAPH MODAL ─────────────────────────────────────────────
+function getActiveTabId() {
+  const activeBtn = document.querySelector('.tab-btn.active');
+  if (!activeBtn) return 'yt';
+  return [...activeBtn.classList].find(c => ['yt','tw','rd'].includes(c)) || 'yt';
+}
+
+function openGraphModal() {
+  const id = getActiveTabId();
+  const s = S[id];
+  if (!s.loaded || !s.allRows.length) return;
+
+  const tabNames = { yt: 'YouTube', tw: 'Twitter', rd: 'Reddit' };
+  document.getElementById('graph-modal-title').textContent = 'Comment Date Distribution';
+  document.getElementById('graph-modal-subtitle').textContent = '— ' + tabNames[id] + ' · ' + activeFolder + ' · ' + s.allRows.length + ' comments';
+  document.getElementById('graph-modal-backdrop').classList.add('open');
+
+  // Parse dates
+  const dates = [];
+  s.allRows.forEach(row => {
+    const raw = row['date_time'] || row['Date'] || row['date'] || '';
+    if (!raw) return;
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) dates.push(d);
+  });
+
+  if (!dates.length) {
+    document.getElementById('graph-modal-body').innerHTML = '<div style="color:var(--muted);font-size:.85rem;">No valid dates found in this dataset.</div>';
+    return;
+  }
+
+  // Ensure canvas is present
+  const body = document.getElementById('graph-modal-body');
+  if (!body.querySelector('#graph-canvas')) {
+    body.innerHTML = '<canvas id="graph-canvas"></canvas>';
+  }
+
+  // Wait a frame for layout
+  requestAnimationFrame(() => drawGraph(dates, id));
+}
+
+function closeGraphModal() {
+  document.getElementById('graph-modal-backdrop').classList.remove('open');
+}
+document.getElementById('graph-modal-backdrop').addEventListener('click', function(e) {
+  if (e.target === this) closeGraphModal();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeGraphModal(); });
+
+function drawGraph(dates, tabId) {
+  const canvas = document.getElementById('graph-canvas');
+  const container = document.getElementById('graph-modal-body');
+  const dpr = window.devicePixelRatio || 1;
+  const W = container.clientWidth;
+  const H = container.clientHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  // Colors per tab
+  const colors = { yt: '#ff0000', tw: '#1d9bf0', rd: '#ff4500' };
+  const barColor = colors[tabId] || '#f0e040';
+  const barColorAlpha = barColor + 'cc';
+  const glowColor = barColor + '33';
+
+  // Margins
+  const marginLeft = 80;
+  const marginRight = 30;
+  const marginTop = 30;
+  const marginBottom = 90;
+  const plotW = W - marginLeft - marginRight;
+  const plotH = H - marginTop - marginBottom;
+
+  // Find date range
+  const minTime = Math.min(...dates.map(d => d.getTime()));
+  const maxTime = Math.max(...dates.map(d => d.getTime()));
+  const minDate = new Date(minTime);
+  const maxDate = new Date(maxTime);
+
+  // Build monthly buckets spanning the full range
+  const startYear = minDate.getFullYear();
+  const startMonth = minDate.getMonth();
+  const endYear = maxDate.getFullYear();
+  const endMonth = maxDate.getMonth();
+
+  const buckets = []; // { year, month, count, timeStart, timeMid }
+  let y = startYear, m = startMonth;
+  while (y < endYear || (y === endYear && m <= endMonth)) {
+    const tStart = new Date(y, m, 1).getTime();
+    const nextM = m === 11 ? 0 : m + 1;
+    const nextY = m === 11 ? y + 1 : y;
+    const tEnd = new Date(nextY, nextM, 1).getTime();
+    buckets.push({ year: y, month: m, count: 0, timeStart: tStart, timeMid: (tStart + tEnd) / 2, timeEnd: tEnd });
+    m++;
+    if (m > 11) { m = 0; y++; }
+  }
+
+  // Fill buckets
+  dates.forEach(d => {
+    const dy = d.getFullYear(), dm = d.getMonth();
+    const b = buckets.find(b => b.year === dy && b.month === dm);
+    if (b) b.count++;
+  });
+
+  const maxCount = Math.max(...buckets.map(b => b.count), 1);
+
+  // LINEAR TIME AXIS: map absolute time to pixel position
+  const timeMin = buckets[0].timeStart;
+  const timeMax = buckets[buckets.length - 1].timeEnd;
+  const timeRange = timeMax - timeMin || 1;
+
+  function timeToX(t) {
+    return marginLeft + ((t - timeMin) / timeRange) * plotW;
+  }
+
+  // Y axis: nice ticks
+  function niceYTicks(max, desiredCount) {
+    if (max <= 0) return [0];
+    const rough = max / desiredCount;
+    const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+    const residual = rough / mag;
+    let nice;
+    if (residual <= 1.5) nice = 1;
+    else if (residual <= 3) nice = 2;
+    else if (residual <= 7) nice = 5;
+    else nice = 10;
+    const step = nice * mag;
+    const ticks = [];
+    for (let v = 0; v <= max + step * 0.1; v += step) {
+      ticks.push(Math.round(v));
+    }
+    if (ticks[ticks.length - 1] < max) ticks.push(ticks[ticks.length - 1] + Math.round(step));
+    return ticks;
+  }
+
+  const yTicks = niceYTicks(maxCount, 6);
+  const yMax = yTicks[yTicks.length - 1] || 1;
+
+  function valToY(v) {
+    return marginTop + plotH - (v / yMax) * plotH;
+  }
+
+  // ── Draw grid lines ──
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 0.5;
+  yTicks.forEach(v => {
+    const yy = valToY(v);
+    ctx.beginPath();
+    ctx.moveTo(marginLeft, yy);
+    ctx.lineTo(W - marginRight, yy);
+    ctx.stroke();
+  });
+
+  // ── Draw bars ──
+  buckets.forEach(b => {
+    const x1 = timeToX(b.timeStart);
+    const x2 = timeToX(b.timeEnd);
+    const barW = (x2 - x1) * 0.8;
+    const barX = x1 + (x2 - x1 - barW) / 2;
+    const barH = (b.count / yMax) * plotH;
+    const barY = marginTop + plotH - barH;
+
+    if (b.count > 0) {
+      // Glow effect
+      ctx.fillStyle = glowColor;
+      ctx.fillRect(barX - 1, barY - 2, barW + 2, barH + 2);
+
+      // Gradient bar
+      const grad = ctx.createLinearGradient(barX, barY, barX, marginTop + plotH);
+      grad.addColorStop(0, barColor);
+      grad.addColorStop(1, barColor + '66');
+      ctx.fillStyle = grad;
+
+      // Rounded top corners
+      const r = Math.min(3, barW / 3);
+      ctx.beginPath();
+      ctx.moveTo(barX, marginTop + plotH);
+      ctx.lineTo(barX, barY + r);
+      ctx.arcTo(barX, barY, barX + r, barY, r);
+      ctx.lineTo(barX + barW - r, barY);
+      ctx.arcTo(barX + barW, barY, barX + barW, barY + r, r);
+      ctx.lineTo(barX + barW, marginTop + plotH);
+      ctx.closePath();
+      ctx.fill();
+    }
+  });
+
+  // ── X axis: year labels at true linear positions ──
+  ctx.fillStyle = '#888899';
+  ctx.font = '12px "DM Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  // Determine which years fall in range
+  const firstYear = new Date(timeMin).getFullYear();
+  const lastYear = new Date(timeMax).getFullYear();
+
+  // Draw year labels
+  for (let yr = firstYear; yr <= lastYear; yr++) {
+    const t = new Date(yr, 0, 1).getTime();
+    if (t < timeMin || t > timeMax) continue;
+    const x = timeToX(t);
+    // Year tick mark
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, marginTop + plotH);
+    ctx.lineTo(x, marginTop + plotH + 8);
+    ctx.stroke();
+    ctx.fillStyle = '#ccc';
+    ctx.font = 'bold 12px "DM Mono", monospace';
+    ctx.fillText(yr.toString(), x, marginTop + plotH + 12);
+  }
+
+  // Draw month ticks (smaller) if space allows
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const totalMonths = buckets.length;
+  const showMonthLabels = (plotW / totalMonths) > 22;
+
+  if (showMonthLabels) {
+    ctx.font = '9px "DM Mono", monospace';
+    ctx.fillStyle = '#666';
+    buckets.forEach(b => {
+      const x = timeToX(b.timeMid);
+      ctx.save();
+      ctx.translate(x, marginTop + plotH + 30);
+      ctx.rotate(-Math.PI / 4);
+      ctx.textAlign = 'right';
+      ctx.fillText(monthNames[b.month] + " '" + String(b.year).slice(2), 0, 0);
+      ctx.restore();
+    });
+  }
+
+  // X axis label
+  ctx.fillStyle = '#aaa';
+  ctx.font = '13px "Syne", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('Date (Linear Time Axis — each position corresponds to actual calendar date)', marginLeft + plotW / 2, H - 18);
+
+  // ── Y axis labels ──
+  ctx.fillStyle = '#888899';
+  ctx.font = '11px "DM Mono", monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  yTicks.forEach(v => {
+    ctx.fillText(v.toLocaleString(), marginLeft - 10, valToY(v));
+  });
+
+  // Y axis label (rotated)
+  ctx.save();
+  ctx.translate(16, marginTop + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#aaa';
+  ctx.font = '13px "Syne", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Number of Comments per Month', 0, 0);
+  ctx.restore();
+
+  // ── Axes lines ──
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(marginLeft, marginTop);
+  ctx.lineTo(marginLeft, marginTop + plotH);
+  ctx.lineTo(W - marginRight, marginTop + plotH);
+  ctx.stroke();
+
+  // ── Summary stats in top-right ──
+  const totalComments = dates.length;
+  const peakBucket = buckets.reduce((a, b) => a.count > b.count ? a : b);
+  const peakLabel = monthNames[peakBucket.month] + ' ' + peakBucket.year;
+
+  ctx.fillStyle = '#666';
+  ctx.font = '10px "DM Mono", monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  ctx.fillText('Total: ' + totalComments.toLocaleString() + ' comments', W - marginRight, marginTop + 4);
+  ctx.fillText('Peak: ' + peakBucket.count + ' in ' + peakLabel, W - marginRight, marginTop + 18);
+  ctx.fillText('Range: ' + (firstYear) + ' — ' + (lastYear), W - marginRight, marginTop + 32);
+}
+
+// Add graph button to status bar after rendering
+const _origRenderTable = renderTable;
+renderTable = function(id) {
+  _origRenderTable(id);
+  const statusBar = document.getElementById('status-' + id);
+  // Remove any existing graph button
+  const existing = statusBar.querySelector('.graph-btn');
+  if (existing) existing.remove();
+  // Add graph button
+  if (S[id].loaded && S[id].allRows.length) {
+    const btn = document.createElement('button');
+    btn.className = 'graph-btn';
+    btn.innerHTML = '📊 Date Graph';
+    btn.title = 'Show date distribution graph for this dataset';
+    btn.onclick = openGraphModal;
+    statusBar.appendChild(btn);
+  }
+};
+
+// Handle window resize to redraw graph
+window.addEventListener('resize', () => {
+  if (document.getElementById('graph-modal-backdrop').classList.contains('open')) {
+    const id = getActiveTabId();
+    const s = S[id];
+    if (!s.loaded || !s.allRows.length) return;
+    const dates = [];
+    s.allRows.forEach(row => {
+      const raw = row['date_time'] || row['Date'] || row['date'] || '';
+      if (!raw) return;
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) dates.push(d);
+    });
+    if (dates.length) drawGraph(dates, id);
+  }
+});
+
 // ── INIT ────────────────────────────────────────────────────
+buildFolderBar();
 loadData('yt');
 </script>
 </body>
